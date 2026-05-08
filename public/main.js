@@ -20,16 +20,6 @@ const gameState = {
   self: null,
   planets: [],
   players: new Map(),
-  velocity: {
-    x: 0,
-    y: 0
-  },
-  keys: {
-    left: false,
-    right: false,
-    up: false,
-    down: false
-  },
   transitionTimer: null,
   lastMoveSentAt: 0
 };
@@ -245,6 +235,64 @@ function maybeSendMove(payload) {
   socket.emit("player:move", payload);
 }
 
+function stepSpace(dx, dy) {
+  if (!gameState.self || gameState.self.zoneType !== "space") {
+    return;
+  }
+
+  const stepSize = 36;
+  const nextX = Phaser.Math.Clamp(gameState.self.x + dx * stepSize, 0, GAME_WIDTH);
+  const nextY = Phaser.Math.Clamp(gameState.self.y + dy * stepSize, 0, GAME_HEIGHT);
+
+  if (nextX === gameState.self.x && nextY === gameState.self.y) {
+    return;
+  }
+
+  gameState.self.x = nextX;
+  gameState.self.y = nextY;
+  if (dx !== 0) {
+    gameState.self.direction = dx < 0 ? "left" : "right";
+  }
+
+  maybeSendMove({
+    x: gameState.self.x,
+    y: gameState.self.y,
+    direction: gameState.self.direction
+  });
+  updateSidebar();
+}
+
+function stepPlanet(dx) {
+  if (!gameState.self || gameState.self.zoneType !== "planet") {
+    return;
+  }
+
+  const currentPlanet = gameState.planets.find(
+    (planet) => planet.id === gameState.self.zoneId
+  );
+  if (!currentPlanet) {
+    return;
+  }
+
+  const stepSize = 42;
+  gameState.self.x += dx * stepSize;
+  if (gameState.self.x < 0) {
+    gameState.self.x += currentPlanet.surfaceLength;
+  }
+  if (gameState.self.x >= currentPlanet.surfaceLength) {
+    gameState.self.x -= currentPlanet.surfaceLength;
+  }
+
+  gameState.self.direction = dx < 0 ? "left" : "right";
+
+  maybeSendMove({
+    x: gameState.self.x,
+    y: 0,
+    direction: gameState.self.direction
+  });
+  updateSidebar();
+}
+
 class SpaceScene extends Phaser.Scene {
   constructor() {
     super("space");
@@ -277,41 +325,6 @@ class SpaceScene extends Phaser.Scene {
   update() {
     if (!gameState.self || gameState.self.zoneType !== "space") {
       return;
-    }
-
-    const acceleration = 0.24;
-    const maxSpeed = 4.4;
-    const drag = 0.92;
-
-    if (gameState.keys.left) {
-      gameState.velocity.x -= acceleration;
-    }
-    if (gameState.keys.right) {
-      gameState.velocity.x += acceleration;
-    }
-    if (gameState.keys.up) {
-      gameState.velocity.y -= acceleration;
-    }
-    if (gameState.keys.down) {
-      gameState.velocity.y += acceleration;
-    }
-
-    gameState.velocity.x = Phaser.Math.Clamp(gameState.velocity.x * drag, -maxSpeed, maxSpeed);
-    gameState.velocity.y = Phaser.Math.Clamp(gameState.velocity.y * drag, -maxSpeed, maxSpeed);
-
-    const moving =
-      Math.abs(gameState.velocity.x) > 0.03 || Math.abs(gameState.velocity.y) > 0.03;
-
-    if (moving) {
-      gameState.self.x = Phaser.Math.Clamp(gameState.self.x + gameState.velocity.x, 0, 1280);
-      gameState.self.y = Phaser.Math.Clamp(gameState.self.y + gameState.velocity.y, 0, 720);
-      gameState.self.direction = gameState.velocity.x < 0 ? "left" : "right";
-      maybeSendMove({
-        x: gameState.self.x,
-        y: gameState.self.y,
-        direction: gameState.self.direction
-      });
-      updateSidebar();
     }
 
     this.renderWorld();
@@ -461,42 +474,12 @@ class PlanetScene extends Phaser.Scene {
     if (!gameState.self || gameState.self.zoneType !== "planet") {
       return;
     }
-
-    const speed = 4;
     const currentPlanet = gameState.planets.find(
       (planet) => planet.id === gameState.self.zoneId
     );
-
-    if (!currentPlanet) {
-      return;
+    if (currentPlanet) {
+      this.renderWorld(currentPlanet);
     }
-
-    let dx = 0;
-    if (gameState.keys.left) {
-      dx -= speed;
-    }
-    if (gameState.keys.right) {
-      dx += speed;
-    }
-
-    if (dx !== 0) {
-      gameState.self.x += dx;
-      if (gameState.self.x < 0) {
-        gameState.self.x += currentPlanet.surfaceLength;
-      }
-      if (gameState.self.x >= currentPlanet.surfaceLength) {
-        gameState.self.x -= currentPlanet.surfaceLength;
-      }
-      gameState.self.direction = dx < 0 ? "left" : "right";
-      maybeSendMove({
-        x: gameState.self.x,
-        y: 0,
-        direction: gameState.self.direction
-      });
-      updateSidebar();
-    }
-
-    this.renderWorld(currentPlanet);
   }
 
   renderWorld(planet) {
@@ -693,38 +676,34 @@ const game = new Phaser.Game({
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
   if (key === "arrowleft" || key === "a") {
-    gameState.keys.left = true;
+    if (gameState.self?.zoneType === "space") {
+      stepSpace(-1, 0);
+    } else {
+      stepPlanet(-1);
+    }
   }
   if (key === "arrowright" || key === "d") {
-    gameState.keys.right = true;
+    if (gameState.self?.zoneType === "space") {
+      stepSpace(1, 0);
+    } else {
+      stepPlanet(1);
+    }
   }
   if (key === "arrowup" || key === "w") {
-    gameState.keys.up = true;
+    if (gameState.self?.zoneType === "space") {
+      stepSpace(0, -1);
+    }
   }
   if (key === "arrowdown" || key === "s") {
-    gameState.keys.down = true;
+    if (gameState.self?.zoneType === "space") {
+      stepSpace(0, 1);
+    }
   }
   if (key === "l") {
     tryLand();
   }
   if (key === "t") {
     tryTakeoff();
-  }
-});
-
-window.addEventListener("keyup", (event) => {
-  const key = event.key.toLowerCase();
-  if (key === "arrowleft" || key === "a") {
-    gameState.keys.left = false;
-  }
-  if (key === "arrowright" || key === "d") {
-    gameState.keys.right = false;
-  }
-  if (key === "arrowup" || key === "w") {
-    gameState.keys.up = false;
-  }
-  if (key === "arrowdown" || key === "s") {
-    gameState.keys.down = false;
   }
 });
 
