@@ -56,6 +56,7 @@ const planets = [
 ];
 
 const players = new Map();
+const pendingSaveTimers = new Map();
 
 function getPlanetById(id) {
   return planets.find((planet) => planet.id === id) || null;
@@ -92,6 +93,28 @@ function serializePlayer(player) {
     y: player.y,
     direction: player.direction
   };
+}
+
+function scheduleSave(player) {
+  if (!player) {
+    return;
+  }
+
+  const existing = pendingSaveTimers.get(player.id);
+  if (existing) {
+    clearTimeout(existing);
+  }
+
+  const timer = setTimeout(async () => {
+    pendingSaveTimers.delete(player.id);
+    try {
+      await savePlayer(player);
+    } catch (error) {
+      console.error("save failed", error);
+    }
+  }, 1500);
+
+  pendingSaveTimers.set(player.id, timer);
 }
 
 function getVisiblePlayersFor(player) {
@@ -140,14 +163,14 @@ io.on("connection", (socket) => {
       });
 
       socket.broadcast.emit("player:joined", serializePlayer(player));
-      await savePlayer(player);
+      scheduleSave(player);
     } catch (error) {
       console.error("join failed", error);
       ack?.({ ok: false, error: "Failed to join world." });
     }
   });
 
-  socket.on("player:move", async (payload = {}) => {
+  socket.on("player:move", (payload = {}) => {
     const player = players.get(socket.id);
     if (!player) {
       return;
@@ -176,6 +199,7 @@ io.on("connection", (socket) => {
     player.direction = payload.direction === "left" ? "left" : "right";
 
     io.emit("player:updated", serializePlayer(player));
+    scheduleSave(player);
   });
 
   socket.on("player:land", async (payload = {}) => {
@@ -190,8 +214,8 @@ io.on("connection", (socket) => {
     player.x = Number(payload.surfaceX) || 0;
     player.y = 0;
 
-    await savePlayer(player);
     io.emit("player:updated", serializePlayer(player));
+    scheduleSave(player);
   });
 
   socket.on("player:takeoff", async (payload = {}) => {
@@ -206,8 +230,8 @@ io.on("connection", (socket) => {
     player.x = planet.spaceX + planet.radius + 24;
     player.y = planet.spaceY;
 
-    await savePlayer(player);
     io.emit("player:updated", serializePlayer(player));
+    scheduleSave(player);
   });
 
   socket.on("disconnect", async () => {
@@ -217,6 +241,11 @@ io.on("connection", (socket) => {
     }
 
     players.delete(socket.id);
+    const existing = pendingSaveTimers.get(player.id);
+    if (existing) {
+      clearTimeout(existing);
+      pendingSaveTimers.delete(player.id);
+    }
     io.emit("player:left", { id: player.id });
     await savePlayer(player);
   });

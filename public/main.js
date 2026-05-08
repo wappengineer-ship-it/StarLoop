@@ -30,7 +30,8 @@ const gameState = {
     up: false,
     down: false
   },
-  transitionTimer: null
+  transitionTimer: null,
+  lastMoveSentAt: 0
 };
 
 function setStatus(text) {
@@ -209,11 +210,39 @@ function updateSidebar() {
 }
 
 function upsertPlayer(player) {
-  gameState.players.set(player.id, { ...player });
+  const existing = gameState.players.get(player.id);
+  const nextPlayer = existing
+    ? {
+        ...existing,
+        ...player,
+        renderX: player.id === gameState.self?.id ? player.x : existing.renderX ?? player.x,
+        renderY: player.id === gameState.self?.id ? player.y : existing.renderY ?? player.y,
+        targetX: player.x,
+        targetY: player.y
+      }
+    : {
+        ...player,
+        renderX: player.x,
+        renderY: player.y,
+        targetX: player.x,
+        targetY: player.y
+      };
+
+  gameState.players.set(player.id, nextPlayer);
   if (gameState.self && player.id === gameState.self.id) {
     gameState.self = { ...player };
   }
   updateSidebar();
+}
+
+function maybeSendMove(payload) {
+  const now = performance.now();
+  if (now - gameState.lastMoveSentAt < 75) {
+    return;
+  }
+
+  gameState.lastMoveSentAt = now;
+  socket.emit("player:move", payload);
 }
 
 class SpaceScene extends Phaser.Scene {
@@ -277,7 +306,7 @@ class SpaceScene extends Phaser.Scene {
       gameState.self.x = Phaser.Math.Clamp(gameState.self.x + gameState.velocity.x, 0, 1280);
       gameState.self.y = Phaser.Math.Clamp(gameState.self.y + gameState.velocity.y, 0, 720);
       gameState.self.direction = gameState.velocity.x < 0 ? "left" : "right";
-      socket.emit("player:move", {
+      maybeSendMove({
         x: gameState.self.x,
         y: gameState.self.y,
         direction: gameState.self.direction
@@ -380,8 +409,11 @@ class SpaceScene extends Phaser.Scene {
         continue;
       }
 
-      this.drawShip(player.x, player.y, 0xffd56b, player.direction, false);
-      this.add.text(player.x - 20, player.y - 26, player.name, {
+      player.renderX = Phaser.Math.Linear(player.renderX ?? player.x, player.targetX ?? player.x, 0.25);
+      player.renderY = Phaser.Math.Linear(player.renderY ?? player.y, player.targetY ?? player.y, 0.25);
+
+      this.drawShip(player.renderX, player.renderY, 0xffd56b, player.direction, false);
+      this.add.text(player.renderX - 20, player.renderY - 26, player.name, {
         color: "#ffffff",
         fontSize: "12px"
       });
@@ -456,7 +488,7 @@ class PlanetScene extends Phaser.Scene {
         gameState.self.x -= currentPlanet.surfaceLength;
       }
       gameState.self.direction = dx < 0 ? "left" : "right";
-      socket.emit("player:move", {
+      maybeSendMove({
         x: gameState.self.x,
         y: 0,
         direction: gameState.self.direction
@@ -576,7 +608,12 @@ class PlanetScene extends Phaser.Scene {
         continue;
       }
 
-      const delta = wrapSurfaceDelta(player.x - selfSurfaceX, planet.surfaceLength);
+      const targetX = player.targetX ?? player.x;
+      player.renderX =
+        player.renderX == null
+          ? targetX
+          : Phaser.Math.Linear(player.renderX, targetX, 0.22);
+      const delta = wrapSurfaceDelta(player.renderX - selfSurfaceX, planet.surfaceLength);
 
       const screenX = playerScreenX + delta;
       if (screenX < -40 || screenX > width + 40) {
@@ -710,6 +747,7 @@ ui.joinButton.addEventListener("click", () => {
       gameState.connected = true;
       gameState.self = response.self;
       gameState.planets = response.planets;
+      gameState.lastMoveSentAt = 0;
       localStorage.setItem("starloop.playerName", ui.nameInput.value);
       gameState.players.clear();
       gameState.players.set(response.self.id, response.self);
