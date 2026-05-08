@@ -18,6 +18,10 @@ const GAME_HEIGHT = 720;
 const gameState = {
   connected: false,
   self: null,
+  selfRender: {
+    x: 0,
+    y: 0
+  },
   planets: [],
   players: new Map(),
   transitionTimer: null,
@@ -303,6 +307,11 @@ class SpaceScene extends Phaser.Scene {
   }
 
   create() {
+    if (gameState.self) {
+      gameState.selfRender.x = gameState.self.x;
+      gameState.selfRender.y = gameState.self.y;
+    }
+
     this.starfield = [];
     for (let i = 0; i < 120; i += 1) {
       this.starfield.push({
@@ -396,7 +405,24 @@ class SpaceScene extends Phaser.Scene {
     }
 
     if (gameState.self?.zoneType === "space") {
-      this.drawShip(gameState.self.x, gameState.self.y, 0x8de4ff, gameState.self.direction, true);
+      gameState.selfRender.x = Phaser.Math.Linear(
+        gameState.selfRender.x,
+        gameState.self.x,
+        0.28
+      );
+      gameState.selfRender.y = Phaser.Math.Linear(
+        gameState.selfRender.y,
+        gameState.self.y,
+        0.28
+      );
+
+      this.drawShip(
+        gameState.selfRender.x,
+        gameState.selfRender.y,
+        0x8de4ff,
+        gameState.self.direction,
+        true
+      );
 
       const landingPlanet = gameState.planets.find((planet) => {
         const distance = Phaser.Math.Distance.Between(
@@ -409,11 +435,18 @@ class SpaceScene extends Phaser.Scene {
       });
 
       if (landingPlanet) {
-        this.add.text(gameState.self.x - 56, gameState.self.y - 42, `Press L to land on ${landingPlanet.name}`, {
-          color: "#dffbff",
-          fontSize: "14px",
-          backgroundColor: "#0f2138"
-        }).setPadding(8, 4, 8, 4);
+        this.add
+          .text(
+            gameState.selfRender.x - 56,
+            gameState.selfRender.y - 42,
+            `Press L to land on ${landingPlanet.name}`,
+            {
+              color: "#dffbff",
+              fontSize: "14px",
+              backgroundColor: "#0f2138"
+            }
+          )
+          .setPadding(8, 4, 8, 4);
       }
     }
 
@@ -725,6 +758,8 @@ ui.joinButton.addEventListener("click", () => {
 
       gameState.connected = true;
       gameState.self = response.self;
+      gameState.selfRender.x = response.self.x;
+      gameState.selfRender.y = response.self.y;
       gameState.planets = response.planets;
       gameState.lastMoveSentAt = 0;
       localStorage.setItem("starloop.playerName", ui.nameInput.value);
@@ -761,6 +796,8 @@ socket.on("player:updated", (player) => {
     }
 
     if (player.zoneType === "space") {
+      gameState.selfRender.x = player.x;
+      gameState.selfRender.y = player.y;
       if (previousSelf && previousSelf.zoneType !== "space") {
         showTransition("Takeoff", "Leaving the planet surface", 900);
       }
