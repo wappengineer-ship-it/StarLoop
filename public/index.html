@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Starloop</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <h1>Starloop</h1>
+      <p class="subtle">Shared universe prototype</p>
+
+      <label class="label" for="nameInput">Display Name</label>
+      <input id="nameInput" maxlength="20" placeholder="Pilot name">
+      <button id="joinButton">Join Universe</button>
+
+      <div class="panel">
+        <div><strong>Zone:</strong> <span id="zoneValue">Offline</span></div>
+        <div><strong>Planet:</strong> <span id="planetValue">None</span></div>
+        <div><strong>Players Here:</strong> <span id="playersValue">0</span></div>
+      </div>
+
+      <div class="panel">
+        <strong>Controls</strong>
+        <p>`WASD` or arrow keys to move</p>
+        <p>`L` to land in space</p>
+        <p>`T` to take off on planets</p>
+      </div>
+
+      <div class="panel">
+        <strong>Status</strong>
+        <p id="statusValue">Ready to connect.</p>
+      </div>
+    </aside>
+
+    <main class="stage-wrap">
+      <div id="game"></div>
+      <div id="transitionOverlay" class="transition-overlay hidden">
+        <div class="transition-content">
+          <div id="transitionTitle" class="transition-title">Travelling</div>
+          <div id="transitionSubtitle" class="transition-subtitle">Crossing the void</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+:root {
+  color-scheme: dark;
+  --bg: #08111d;
+  --panel: #101c2d;
+  --panel-border: #24354d;
+  --text: #edf4ff;
+  --muted: #9fb3cf;
+  --accent: #8de4ff;
+  --accent-2: #ffd56b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Trebuchet MS", Arial, sans-serif;
+  background:
+    radial-gradient(circle at top, rgba(141, 228, 255, 0.15), transparent 22%),
+    linear-gradient(180deg, #07101b 0%, var(--bg) 100%);
+  color: var(--text);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  padding: 20px;
+  border-right: 1px solid var(--panel-border);
+  background: rgba(10, 19, 31, 0.92);
+}
+
+.sidebar h1 {
+  margin: 0;
+  font-size: 2.4rem;
+}
+
+.subtle {
+  margin: 6px 0 18px;
+  color: var(--muted);
+}
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+input,
+button {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+}
+
+input {
+  margin-bottom: 10px;
+  color: var(--text);
+  background: #152337;
+}
+
+button {
+  margin-bottom: 14px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #102235;
+  background: linear-gradient(180deg, #d7fbff 0%, var(--accent) 100%);
+}
+
+.panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 14px;
+  background: var(--panel);
+}
+
+.panel p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.stage-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+#game {
+  width: min(100%, 1100px);
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.35);
+}
+
+canvas {
+  display: block;
+}
+
+.transition-overlay {
+  position: absolute;
+  inset: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at center, rgba(141, 228, 255, 0.16), transparent 25%),
+    rgba(5, 10, 18, 0.88);
+  opacity: 1;
+  transition: opacity 280ms ease;
+  pointer-events: none;
+}
+
+.transition-overlay.hidden {
+  opacity: 0;
+}
+
+.transition-content {
+  text-align: center;
+}
+
+.transition-title {
+  font-size: 2.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f4fbff;
+  text-transform: uppercase;
+}
+
+.transition-subtitle {
+  margin-top: 8px;
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+@media (max-width: 900px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--panel-border);
+  }
+}
